@@ -7,7 +7,7 @@
     con opciones para incluir carpetas adicionales (Downloads, Music, Pictures, Videos)
     y discos adicionales en el sistema.
     
-    Oferece dos modos de destino:
+    Ofrece dos modos de destino:
     - Servidor remoto mediante dirección IP (ruta UNC)
     - Almacenamiento local externo
     
@@ -118,14 +118,30 @@ function Resolve-BackupDestination {
         [string]$DestinationPath
     )
 
-    # Validar si la ruta existe; si no, intentar crearla
-    if (-not (Test-Path -Path $DestinationPath)) {
-        try {
-            New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
-        } catch {
-            # Lanzar excepción detallada si falla la creación de la ruta
-            throw "No se puede crear o acceder al destino: $DestinationPath. Detalle: $($_.Exception.Message)"
+    # Manejar rutas UNC (red) y locales de manera diferente
+    if ($DestinationPath -like '\\*') {
+        # Para rutas de red, verificar acceso sin intentar crear el recurso compartido
+        if (-not (Test-Path -Path $DestinationPath)) {
+            throw "No se puede acceder al destino de red: $DestinationPath. Verifique que el recurso compartido exista y sea accesible."
         }
+    } else {
+        # Para rutas locales, intentar crear si no existe
+        if (-not (Test-Path -Path $DestinationPath)) {
+            try {
+                New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+            } catch {
+                throw "No se puede crear o acceder al destino: $DestinationPath. Detalle: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    # Verificar permisos de escritura creando un archivo de prueba
+    try {
+        $testFile = Join-Path -Path $DestinationPath -ChildPath 'test.tmp'
+        New-Item -Path $testFile -ItemType File -Force | Out-Null
+        Remove-Item -Path $testFile -Force
+    } catch {
+        throw "No se puede escribir en el destino: $DestinationPath. Detalle: $($_.Exception.Message)"
     }
 
     # Retornar la ruta normalizada y completa del sistema de archivos
@@ -156,6 +172,12 @@ function Get-BackupDestination {
                 $serverIp = Read-Host 'Ingrese la IP del servidor remoto'
                 if ([string]::IsNullOrWhiteSpace($serverIp)) {
                     Write-Host 'Se requiere una IP válida.' -ForegroundColor Yellow
+                    continue
+                }
+
+                # Validar formato de IP
+                if (-not [System.Net.IPAddress]::TryParse($serverIp, [ref]$null)) {
+                    Write-Host 'La dirección IP no es válida. Intente nuevamente.' -ForegroundColor Yellow
                     continue
                 }
 
@@ -192,7 +214,7 @@ function Copy-BackupFolder {
         Copia una carpeta o disco completo a la carpeta de respaldo.
     .DESCRIPTION
         Resuelve la ruta de origen, determina el nombre de destino y copia recursivamente
-        el contenido. Maneja tanto cancarpetas individuales como discos completos.
+        el contenido. Maneja tanto carpetas individuales como discos completos.
     .PARAMETER SourcePath
         Ruta de origen a respaldar (carpeta o disco).
     .PARAMETER BackupRoot
@@ -236,7 +258,9 @@ function Copy-BackupFolder {
 
     try {
         # Copiar recursivamente: -Force sobrescribe si existe, -Recurse para subdirectorios
-        Copy-Item -Path $copySource -Destination $destination -Recurse -Force -ErrorAction Stop
+        # Excluir archivos del sistema comunes para evitar copias innecesarias
+        $excludeFiles = @('pagefile.sys', 'hiberfil.sys', 'swapfile.sys', 'DumpStack.log.tmp')
+        Copy-Item -Path $copySource -Destination $destination -Recurse -Force -Exclude $excludeFiles -ErrorAction Stop
         return $true
     } catch {
         # Registrar error pero no detener el script completo
