@@ -28,7 +28,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Ask-YesNo {
+function Preguntar-YesNo {
     <#
     .SYNOPSIS
         Solicita una respuesta Sí/No al usuario con validación en bucle.
@@ -68,7 +68,7 @@ function Ask-YesNo {
     }
 }
 
-function Get-AdditionalVolumes {
+function Obtener-VolumenesAdicionales {
     <#
     .SYNOPSIS
         Detecta y retorna discos adicionales (excluyendo C:) con la opción de selección del usuario.
@@ -99,7 +99,7 @@ function Get-AdditionalVolumes {
     return $selected
 }
 
-function Resolve-BackupDestination {
+function Resolver-DestinoRespaldo {
     <#
     .SYNOPSIS
         Valida y prepara la ruta de destino del respaldo.
@@ -148,7 +148,7 @@ function Resolve-BackupDestination {
     return (Get-Item -Path $DestinationPath).FullName
 }
 
-function Get-BackupDestination {
+function Obtener-DestinoRespaldo {
     <#
     .SYNOPSIS
         Permite al usuario elegir el destino del respaldo (remoto o local).
@@ -199,7 +199,7 @@ function Get-BackupDestination {
                     continue
                 }
 
-                return Resolve-BackupDestination -DestinationPath $localPath
+                return Resolver-DestinoRespaldo -DestinationPath $localPath
             }
             default {
                 Write-Host 'Opción no válida. Elija 1 o 2.' -ForegroundColor Yellow
@@ -208,7 +208,7 @@ function Get-BackupDestination {
     }
 }
 
-function Copy-BackupFolder {
+function Copiar-CarpetaRespaldo {
     <#
     .SYNOPSIS
         Copia una carpeta o disco completo a la carpeta de respaldo.
@@ -265,11 +265,12 @@ function Copy-BackupFolder {
     } catch {
         # Registrar error pero no detener el script completo
         Write-Warning "Error copiando '$resolvedSource' a '$destination': $($_.Exception.Message)"
+        echo $_ | Out-File -FilePath (Join-Path -Path $BackupRoot -ChildPath 'ErrorLog.txt') -Append -Encoding UTF8
         return $false
     }
 }
 
-function Write-BackupSummary {
+function Escribir-ResumenRespaldo {
     <#
     .SYNOPSIS
         Escribe el resumen del respaldo en un archivo de texto UTF-8.
@@ -322,20 +323,20 @@ $optionalFolders = @(
 # Permitir al usuario seleccionar carpetas opcionales que existan
 foreach ($folder in $optionalFolders) {
     if (Test-Path -Path $folder.Path -PathType Container) {
-        if (Ask-YesNo "¿Desea respaldar '$($folder.Name)'?" 'N') {
+        if (Preguntar-YesNo "¿Desea respaldar '$($folder.Name)'?" 'N') {
             $backupItems += [PSCustomObject]@{ Name = $folder.Name; Path = $folder.Path; Required = $false }
         }
     }
 }
 
 # Detectar discos adicionales (si existen) y permitir selección
-$extraVolumes = Get-AdditionalVolumes
+$extraVolumes = Obtener-VolumenesAdicionales
 
 # ========================================
 # Sección: SELECCIÓN DE DESTINO
 # ========================================
 Write-Host "\nSeleccionando destino del respaldo..." -ForegroundColor Cyan
-$backupDestination = Get-BackupDestination
+$backupDestination = Obtener-DestinoRespaldo
 
 # Crear estructura de carpetas: raíz del respaldo / nombre del equipo
 # Esto permite organizar respaldos de múltiples equipos en el mismo servidor
@@ -348,7 +349,7 @@ $logPath = Join-Path -Path $backupRoot -ChildPath 'ComputerName.txt'
 
 # Crear archivo con información del equipo y usuario que ejecutó el respaldo
 # Útil para auditoría y validación posterior
-Write-BackupSummary -SummaryPath $logPath -Lines @(
+Escribir-ResumenRespaldo -SummaryPath $logPath -Lines @(
     "Equipo: $computerName",
     "Usuario: $env:USERNAME",
     "Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
@@ -383,7 +384,7 @@ foreach ($item in $backupItems) {
     }
 
     Write-Host "Copiando $($item.Name)..." -ForegroundColor Cyan
-    if (Copy-BackupFolder -SourcePath $item.Path -BackupRoot $backupRoot) {
+    if (Copiar-CarpetaRespaldo -SourcePath $item.Path -BackupRoot $backupRoot) {
         $completed++
         $summaryLines += "[OK] $($item.Name) -> $($item.Path)"
     } else {
@@ -408,12 +409,12 @@ foreach ($volume in $extraVolumes) {
 # Sección: GENERACIÓN DE REPORTE FINAL
 # ========================================
 # Agregar estadísticas de resultado al resumen
-$summaryLines += ''
+$summaryLines += 'Resultados:'
 $summaryLines += "Carpetas copiadas: $completed"
 $summaryLines += "Errores: $failed"
 
 # Guardar el resumen del respaldo para auditoría
-Write-BackupSummary -SummaryPath $summaryPath -Lines $summaryLines
+Escribir-ResumenRespaldo -SummaryPath $summaryPath -Lines $summaryLines
 
 Write-Host "\nRespaldo finalizado." -ForegroundColor Green
 Write-Host "Resumen guardado en: $summaryPath"
