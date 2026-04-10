@@ -147,20 +147,49 @@ function Get-External-Backup {
    param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [PSCustomObject]$BackupConfig
+        [string]$DevicePath
     )
 
     process {
         # Extraemos solo lo que nos importa
         $Rutas = $BackupConfig.SelectedPaths
+        $Cantidad = $BackupConfig.Count
+        Write-Host "Iniciando respaldo a $DevicePath con $Cantidad carpetas seleccionadas..." -ForegroundColor Yellow
         
-        # Ahora trabajas solo con $Rutas
         foreach ($Path in $Rutas.Values) {
             Write-Host "Procesando $Path"
         }
     }
+        $Resultados = @()
+        # Aquí se implementaría la lógica para detectar el dispositivo externo, verificar espacio, manejar permisos y realizar la transferencia de archivos.
+        if (-not [string]::IsNullOrEmpty($DevicePath)) {
+            # El código se ejecuta si tiene contenido
+            Write-Host "Respaldo a dispositivo externo [$DevicePath] iniciado..." -ForegroundColor Green
+            # /S    : Copia subdirectorios (pero no vacíos)
+            # /E    : Copia subdirectorios (incluyendo vacíos)
+            # /Z    : Modo reiniciable (si se desconecta el USB, puede seguir luego)
+            # /R:3  : 3 reintentos en caso de error
+            # /W:5  : 5 segundos de espera entre reintentos
+            # /MT:8 : Multi-hilo para mayor velocidad
+            $Params = @($Rutas, $DevicePath, "/E", "/Z", "/R:3", "/W:5", "/MT:8", "/XJD", "/XJF")
+            & robocopy @Params
+
+            $LastExit = $LASTEXITCODE
+            $Resultados += [PSCustomObject]@{
+                Carpeta  = $Folder
+                ExitCode = $LastExit
+                Status   = if ($LastExit -le 8) { "Éxito" } else { "Error Crítico" }
+            }
+                
+        } else {
+            Write-Host "No se ha especificado un dispositivo externo válido. Respaldo cancelado." -ForegroundColor Red
+        }
 
     end {
-        
+         Write-Host "Respaldo a dispositivo externo [$DevicePath] finalizado." -ForegroundColor Green
+         # Creamos una ruta de destino organizada: E:\Backup_Equipo\NombreCarpeta
+        $DestinoFinal = Join-Path $DevicePath "Backup_$($env:COMPUTERNAME)\$Folder"
+        return $Resultados
     }
 
     clean {
