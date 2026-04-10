@@ -41,48 +41,68 @@ function Get-UserFolders {
     }
 }
 
-# Esta función es para saber si el usuario desea incluir las carpetas adicionales (Downloads, Music, Pictures, Videos) en el respaldo. Deberá implementar la lógica de interacción con el usuario para obtener esta información.
 function Get-Answer {
     <#
     .SYNOPSIS
-    Short description
+        Interacción con el usuario para filtrar carpetas de respaldo.
     .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
+        Recibe un Hashtable con las rutas de usuario y pregunta por cada carpeta adicional 
+        si se desea incluir. Retorna un objeto con las rutas confirmadas.
     .INPUTS
-    Inputs to this cmdlet (if any)
+        [Hashtable] Un diccionario con las rutas (Desktop, Documents, etc.)
     .OUTPUTS
-    Output from this cmdlet (if any)
-    .NOTES
-    General notes
-    .COMPONENT
-    The component this cmdlet belongs to
-    .ROLE
-    The role this cmdlet belongs to
-    .FUNCTIONALITY
-    The functionality that best describes this cmdlet
+        [PSCustomObject] Contiene la lista final de rutas a respaldar.
     #>
     param (
-       
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Hashtable]$UserFolders
     )
 
     begin {
-        #BeginCodeHere
+        Write-Host "`n--- Configuración de Alcance del Respaldo ---" -ForegroundColor Cyan
+        $FinalPaths = @{}
+        
+        # Las carpetas principales siempre se incluyen por diseño del script
+        $Principales = @('Desktop', 'Documents')
+        $Adicionales = @('Downloads', 'Music', 'Pictures', 'Videos')
     }
 
     process {
-        
+        # 1. Agregar carpetas obligatorias
+        foreach ($p in $Principales) {
+            if ($UserFolders.ContainsKey($p)) {
+                $FinalPaths[$p] = $UserFolders[$p]
+            }
+        }
+
+        # 2. Preguntar por las adicionales
+        foreach ($a in $Adicionales) {
+            if ($UserFolders.ContainsKey($a)) {
+                $choice = ""
+                while ($choice -notmatch "^[SN]$") {
+                    $choice = Read-Host "¿Desea incluir la carpeta de [$a]? (S/N)"
+                    $choice = $choice.ToUpper()
+                }
+
+                if ($choice -eq 'S') {
+                    $FinalPaths[$a] = $UserFolders[$a]
+                }
+            }
+        }
     }
 
     end {
-        #EndCodeHere
+        Write-Host "Selección finalizada.`n" -ForegroundColor Green
+        # Retornamos un objeto limpio para el siguiente eslabón del pipeline
+        return [PSCustomObject]@{
+            SelectedPaths = $FinalPaths
+            TimeStamp     = Get-Date
+            Count         = $FinalPaths.Count
+        }
     }
 
     clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
+        # No se requieren limpiezas de recursos para esta interacción por consola
     }
 }
 
