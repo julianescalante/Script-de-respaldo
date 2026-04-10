@@ -27,3 +27,15 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Get-UserFolders {
+    $userProfile = [Environment]::GetFolderPath('UserProfile')
+    return @{
+        Desktop   = Join-Path $userProfile 'Desktop'
+        Documents = Join-Path $userProfile 'Documents'
+        Downloads = Join-Path $userProfile 'Downloads'
+        Music     = Join-Path $userProfile 'Music'
+        Pictures   = Join-Path $userProfile 'Pictures'
+        Videos    = Join-Path $userProfile 'Videos'
+    }
+}
