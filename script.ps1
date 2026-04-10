@@ -287,27 +287,23 @@ function Get-Incremental-Backup {
 function Get-Execution {
     <#
     .SYNOPSIS
-    Short description
+    Function principal para ejecutar el proceso de respaldo
     .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
+    Esta función orquesta el proceso completo de respaldo, desde la selección de carpetas, elección del destino, ejecución del respaldo y generación del resumen final.
     .INPUTS
-    Inputs to this cmdlet (if any)
+    Función sin parámetros de entrada, se basa en la interacción con el usuario y la lógica interna para determinar las rutas y destinos.
     .OUTPUTS
-    Output from this cmdlet (if any)
+    Resumen detallado del proceso de respaldo, incluyendo información sobre los archivos respaldados, errores encontrados y estado final del proceso.
+    Backup exitoso o fallido.
     .NOTES
-    General notes
+    Esta función es el punto de entrada para el proceso de respaldo. Se recomienda ejecutar esta función para iniciar el proceso completo.
     .COMPONENT
-    The component this cmdlet belongs to
+    El componente principal del script de respaldo automático.
     .ROLE
-    The role this cmdlet belongs to
+    Orquestador del proceso de respaldo.
     .FUNCTIONALITY
-    The functionality that best describes this cmdlet
+    Función principal para ejecutar el proceso de respaldo, incluyendo selección de carpetas, elección de destino, ejecución del respaldo y generación de resumen.
     #>
-    param ()
 
     begin {
         #BeginCodeHere
@@ -322,6 +318,5 @@ function Get-Execution {
     }
 
     clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
     }
 }
