@@ -36,7 +36,7 @@ function Get-UserFolders {
         Documents = Join-Path $userProfile 'Documents'
         Downloads = Join-Path $userProfile 'Downloads'
         Music     = Join-Path $userProfile 'Music'
-        Pictures   = Join-Path $userProfile 'Pictures'
+        Pictures  = Join-Path $userProfile 'Pictures'
         Videos    = Join-Path $userProfile 'Videos'
     }
 }
@@ -54,7 +54,7 @@ function Get-Answer {
         [PSCustomObject] Contiene la lista final de rutas a respaldar.
     #>
     param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Hashtable]$UserFolders
     )
 
@@ -110,45 +110,61 @@ function Get-Answer {
 function Get-External-Backup {
     <#
     .SYNOPSIS
-    Short description
+    EsTa función es un placeholder para la lógica de respaldo a un dispositivo de almacenamiento externo (Disco Duro, USB, etc etc). Deberá implementar la detección de unidades externas, manejo de rutas y la transferencia de archivos.
     .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
+    La funcion solo sirve para respaldar a un dispositivo de almacenamiento externo.
+    Deberá implementar la detección de unidades externas, manejo de rutas y la transferencia de archivos.
+    En caso de que el dispositivo externo no esté disponible o presente errores, la función deberá manejar estas situaciones y reportarlas adecuadamente.
+    Se recomienda implementar una lógica para verificar el espacio disponible en el dispositivo antes de iniciar el respaldo.
+    La función también puede incluir opciones para formatear el dispositivo si es necesario antes de realizar el respaldo.
+    Es importante que la función maneje correctamente los permisos de escritura en el dispositivo externo para evitar fallos durante el proceso de respaldo.
+    Se sugiere implementar un sistema de logs para registrar las acciones realizadas durante el respaldo a dispositivos externos, incluyendo errores y éxitos.
+    La función debe ser capaz de manejar diferentes tipos de dispositivos externos, como discos duros, unidades USB, etc., y adaptarse a sus características específicas.
+    En resumen, esta función es crucial para garantizar que los respaldos se realicen correctamente a dispositivos externos, proporcionando una solución confiable y eficiente para los usuarios que prefieren esta opción de almacenamiento.
     .INPUTS
-    Inputs to this cmdlet (if any)
+    Rutas de las carpetas a respaldar y la información del dispositivo externo seleccionado. E:, F:, etc.
+    (si se requiere información adicional para la conexión o autenticación, también se incluiría aquí)
     .OUTPUTS
-    Output from this cmdlet (if any)
+    Resultados del proceso de respaldo, incluyendo información sobre los archivos respaldados, errores encontrados y estado final del proceso.
+    Backup exitoso o fallido.
+    Detalles específicos sobre el dispositivo externo utilizado para el respaldo, como su nombre, capacidad, espacio disponible, etc.
+    Logs detallados de las acciones realizadas durante el proceso de respaldo a dispositivos externos, incluyendo cualquier error o éxito registrado.
+    Información sobre la fecha y hora del respaldo realizado a dispositivos externos para fines de auditoría y seguimiento.
+    En caso de errores, se podrían generar reportes específicos que detallen los problemas encontrados durante el proceso de respaldo a dispositivos externos, facilitando la resolución de problemas.
+    Resumen final del proceso de respaldo a dispositivos externos, que incluya una visión general de los resultados obtenidos y cualquier recomendación para futuras ejecuciones.
+    En caso de que se implementen opciones adicionales como formateo del dispositivo externo, también se podrían incluir detalles sobre estas acciones en los resultados y logs generados por la función.
+    En resumen, los outputs de esta función deben proporcionar una visión completa y detallada del proceso de respaldo a dispositivos externos, permitiendo a los usuarios entender claramente los resultados obtenidos y cualquier acción adicional que pueda ser necesaria.
     .NOTES
-    General notes
+    No maneja conexión a servidores remotos, solo dispositivos de almacenamiento externos.
     .COMPONENT
-    The component this cmdlet belongs to
+    El componente encargado de gestionar los respaldos a dispositivos externos dentro del script.
     .ROLE
-    The role this cmdlet belongs to
+    Respaldo a dispositivos externos.
     .FUNCTIONALITY
-    The functionality that best describes this cmdlet
+    Función encargada de realizar respaldos a dispositivos de almacenamiento externos, manejando la detección de unidades, transferencia de archivos, manejo de errores y generación de logs detallados sobre el proceso.
     #>
 
-    param (
-    
+   param (
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [PSCustomObject]$BackupConfig
     )
 
-    begin {
-        #BeginCodeHere
-    }
-
     process {
+        # Extraemos solo lo que nos importa
+        $Rutas = $BackupConfig.SelectedPaths
         
+        # Ahora trabajas solo con $Rutas
+        foreach ($Path in $Rutas.Values) {
+            Write-Host "Procesando $Path"
+        }
     }
 
     end {
-        #EndCodeHere
+        
     }
 
     clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
+
     }
 }
 #EsTa función es un placeholder para la lógica de respaldo a un destino remoto. Deberá implementar la conexión al servidor via IP, manejo de rutas UNC y la transferencia de archivos. En caso de que la carpeta del servidor pida autenticación, el servidor pedirá credenciales.
