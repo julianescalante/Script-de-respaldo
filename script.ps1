@@ -27,29 +27,49 @@ function Get-Answer {
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Hashtable]$UserFolders
     )
+
     begin {
-        Write-Host "`n--- Configuración de Alcance ---" -ForegroundColor Cyan
+        Write-Host "`n--- Configuración de Alcance del Respaldo ---" -ForegroundColor Cyan
         $FinalPaths = @{}
-        $Principales = @('Desktop', 'Documentos')
-        $Adicionales = @('Downloads', 'Music', 'Pictures', 'Videos')
+        
+        # Definimos quiénes son obligatorios y quiénes opcionales
+        $Obligatorios = @('Desktop', 'Documents')
+        $Opcionales   = @('Downloads', 'Music', 'Pictures', 'Videos')
     }
+
     process {
-        foreach ($p in $Principales) {
-            if ($UserFolders.ContainsKey($p) -and (Test-Path $UserFolders[$p])) {
-                $FinalPaths[$p] = $UserFolders[$p]
+        # 1. Procesar Obligatorios
+        foreach ($key in $Obligatorios) {
+            if ($UserFolders.ContainsKey($key)) {
+                if (Test-Path $UserFolders[$key]) {
+                    $FinalPaths[$key] = $UserFolders[$key]
+                    Write-Host "[MANDATORIO] Incluyendo $key" -ForegroundColor Gray
+                }
             }
         }
-        foreach ($a in $Adicionales) {
-            if ($UserFolders.ContainsKey($a) -and (Test-Path $UserFolders[$a])) {
+
+        # 2. Procesar Opcionales con pregunta
+        foreach ($key in $Opcionales) {
+            if ($UserFolders.ContainsKey($key) -and (Test-Path $UserFolders[$key])) {
                 $choice = ""
                 while ($choice -notmatch "^[SN]$") {
-                    $choice = (Read-Host "¿Incluir [$a]? (S/N)").ToUpper().Trim()
+                    $choice = (Read-Host "¿Desea incluir la carpeta de [$key]? (S/N)").ToUpper().Trim()
                 }
-                if ($choice -eq 'S') { $FinalPaths[$a] = $UserFolders[$a] }
+
+                if ($choice -eq 'S') {
+                    $FinalPaths[$key] = $UserFolders[$key]
+                }
             }
         }
     }
+
     end {
+        # Verificación de seguridad: si por algo quedó vacío, avisar
+        if ($FinalPaths.Count -eq 0) {
+            Write-Warning "No se seleccionaron carpetas válidas."
+        }
+
+        # Retornamos el objeto con TODAS las rutas seleccionadas
         return [PSCustomObject]@{
             SelectedPaths = $FinalPaths
             TimeStamp     = Get-Date
@@ -141,7 +161,7 @@ function Get-Backup-Summary {
 
 # --- 6. FUNCIÓN ORQUESTADORA (EJECUCIÓN) ---
 function Get-Execution {
-    clear
+    Clear-Host
     Write-Host "==========================================" -ForegroundColor Magenta
     Write-Host "   SISTEMA DE RESPALDO AUTOMATIZADO" -ForegroundColor Magenta
     Write-Host "==========================================" -ForegroundColor Magenta
