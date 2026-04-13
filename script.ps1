@@ -172,8 +172,9 @@ function Get-External-Backup {
             # /W:5  : 5 segundos de espera entre reintentos
             # /MT:8 : Multi-hilo para mayor velocidad
             $Params = @($Rutas, $DevicePath, "/E", "/Z", "/R:3", "/W:5", "/MT:8", "/XJD", "/XJF")
-            & robocopy @Params
+            $robocopy = robocopy @Params
 
+            move-item $robocopy -Path "$DevicePath\Backup_$($env:COMPUTERNAME)\$Folder\*" -Destination "$DevicePath\Backup_$($env:COMPUTERNAME)\" -Force
             $LastExit = $LASTEXITCODE
             $Resultados += [PSCustomObject]@{
                 Carpeta  = $Folder
@@ -193,7 +194,8 @@ function Get-External-Backup {
     }
 
     clean {
-
+        # Aquí se podrían limpiar recursos, cerrar conexiones, etc. si fuera necesario.
+        Write-Host "Limpieza de recursos para respaldo a dispositivo externo [$DevicePath]" -ForegroundColor Cyan
     }
 }
 #EsTa función es un placeholder para la lógica de respaldo a un destino remoto. Deberá implementar la conexión al servidor via IP, manejo de rutas UNC y la transferencia de archivos. En caso de que la carpeta del servidor pida autenticación, el servidor pedirá credenciales.
