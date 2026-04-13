@@ -144,58 +144,75 @@ function Get-External-Backup {
     Función encargada de realizar respaldos a dispositivos de almacenamiento externos, manejando la detección de unidades, transferencia de archivos, manejo de errores y generación de logs detallados sobre el proceso.
     #>
 
-   param (
+  param (
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [PSCustomObject]$BackupConfig
+        [PSCustomObject]$BackupConfig,
+        
+        [Parameter(Mandatory=$true)] # Agregué Mandatory para asegurar que el script no falle sin ruta
         [string]$DevicePath
     )
 
+    begin {
+        $Resultados = @()
+        Write-Host "Preparando respaldo a dispositivo externo [$DevicePath]..." -ForegroundColor Cyan
+    }
+
     process {
-        # Extraemos solo lo que nos importa
         $Rutas = $BackupConfig.SelectedPaths
         $Cantidad = $BackupConfig.Count
+        
         Write-Host "Iniciando respaldo a $DevicePath con $Cantidad carpetas seleccionadas..." -ForegroundColor Yellow
         
-        foreach ($Path in $Rutas.Values) {
-            Write-Host "Procesando $Path"
-        }
-    }
-        $Resultados = @()
-        # Aquí se implementaría la lógica para detectar el dispositivo externo, verificar espacio, manejar permisos y realizar la transferencia de archivos.
-        if (-not [string]::IsNullOrEmpty($DevicePath)) {
-            # El código se ejecuta si tiene contenido
-            Write-Host "Respaldo a dispositivo externo [$DevicePath] iniciado..." -ForegroundColor Green
-            # /S    : Copia subdirectorios (pero no vacíos)
-            # /E    : Copia subdirectorios (incluyendo vacíos)
-            # /Z    : Modo reiniciable (si se desconecta el USB, puede seguir luego)
-            # /R:3  : 3 reintentos en caso de error
-            # /W:5  : 5 segundos de espera entre reintentos
-            # /MT:8 : Multi-hilo para mayor velocidad
-            $Params = @($Rutas, $DevicePath, "/E", "/Z", "/R:3", "/W:5", "/MT:8", "/XJD", "/XJF")
-            $robocopy = robocopy @Params
+        if (-not [string]::IsNullOrWhiteSpace($DevicePath)) {
+            
+            # EL CAMBIO CLAVE: Robocopy debe ejecutarse PARA CADA carpeta seleccionada
+            foreach ($Folder in $Rutas.Keys) {
+                $Origen = $Rutas[$Folder]
+                # Creamos el destino específico para esa carpeta (ej. E:\Backup_PC\Documents)
+                $DestinoFinal = Join-Path $DevicePath "Backup_$($env:COMPUTERNAME)\$Folder"
 
-            move-item $robocopy -Path "$DevicePath\Backup_$($env:COMPUTERNAME)\$Folder\*" -Destination "$DevicePath\Backup_$($env:COMPUTERNAME)\" -Force
-            $LastExit = $LASTEXITCODE
-            $Resultados += [PSCustomObject]@{
-                Carpeta  = $Folder
-                ExitCode = $LastExit
-                Status   = if ($LastExit -le 8) { "Éxito" } else { "Error Crítico" }
+                Write-Host "Copiando: $Folder..." -ForegroundColor Gray
+
+                # Definimos los parámetros específicos para este par Origen/Destino
+                $Params = @($Origen, $DestinoFinal, "/E", "/Z", "/R:3", "/W:5", "/MT:8", "/XJD", "/XJF")
+                # Glosario de parámetros:
+                # /E: Copia subdirectorios, incluyendo vacíos.
+                # /Z: Modo reiniciable, permite reanudar la copia en caso de interrupciones.
+                # /R:3: Reintenta 3 veces en caso de error.
+                # /W:5: Espera 5 segundos entre reintentos.
+                # /MT:8: Utiliza 8 hilos para la copia.
+                # /XJD: Omite directorios junction.
+                # /XJF: Omite archivos junction.
+                # Ejecutamos robocopy
+                & robocopy @Params
+
+                # Capturamos el resultado de esta carpeta específica
+                $LastExit = $LASTEXITCODE
+                $Resultados += [PSCustomObject]@{
+                    Carpeta  = $Folder
+                    Ruta     = $Origen
+                    ExitCode = $LastExit
+                    Status   = if ($LastExit -le 8) { "Éxito" } else { "Error Crítico" }
+                }
             }
                 
         } else {
             Write-Host "No se ha especificado un dispositivo externo válido. Respaldo cancelado." -ForegroundColor Red
         }
+    }
 
     end {
-         Write-Host "Respaldo a dispositivo externo [$DevicePath] finalizado." -ForegroundColor Green
-         # Creamos una ruta de destino organizada: E:\Backup_Equipo\NombreCarpeta
-        $DestinoFinal = Join-Path $DevicePath "Backup_$($env:COMPUTERNAME)\$Folder"
+        Write-Host "`nRespaldo a dispositivo externo [$DevicePath] finalizado." -ForegroundColor Green
         return $Resultados
     }
 
     clean {
-        # Aquí se podrían limpiar recursos, cerrar conexiones, etc. si fuera necesario.
-        Write-Host "Limpieza de recursos para respaldo a dispositivo externo [$DevicePath]" -ForegroundColor Cyan
+        # Nota: En Clean, $Resultados y $BackupConfig siguen disponibles.
+        Write-Host "Sesión de respaldo cerrada." -ForegroundColor Cyan
+        # Una pequeña validación para evitar errores si el backup no inició
+        if ($Resultados) {
+            Write-Host "Se procesaron $($Resultados.Count) de $Cantidad carpetas seleccionadas." -ForegroundColor Green
+        }
     }
 }
 #EsTa función es un placeholder para la lógica de respaldo a un destino remoto. Deberá implementar la conexión al servidor via IP, manejo de rutas UNC y la transferencia de archivos. En caso de que la carpeta del servidor pida autenticación, el servidor pedirá credenciales.
