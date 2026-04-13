@@ -378,47 +378,6 @@ function Get-Backup-Summary {
     }
 }
 
-# Esta función se encarga de respaldar archivos y carpetas que han sido modificadas o su fecha de modificación es posterior a la fecha del último respaldo. Deberá implementar la lógica para comparar fechas de modificación y realizar el respaldo incremental.
-function Get-Incremental-Backup {
-    <#
-    .SYNOPSIS
-    Short description
-    .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
-    .INPUTS
-    Inputs to this cmdlet (if any)
-    .OUTPUTS
-    Output from this cmdlet (if any)
-    .NOTES
-    General notes
-    .COMPONENT
-    The component this cmdlet belongs to
-    .ROLE
-    The role this cmdlet belongs to
-    .FUNCTIONALITY
-    The functionality that best describes this cmdlet
-    #>
-    param ()
-
-    begin {
-        #BeginCodeHere
-    }
-
-    process { }
-
-    end {
-        #EndCodeHere
-    }
-
-    clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
-    } 
-}
-
 # Función principal para ejecutar el proceso de respaldo, es el Main Funtion
 function Get-Execution {
     <#
