@@ -251,7 +251,7 @@ function Get-Remote-Backup {
         
         # Verificar si el servidor responde al ping
         if (-not (Test-Connection -ComputerName $ServerIP -Count 1 -Quiet)) {
-            Write-Error "El servidor remoto [$ServerIP] no responde. Abortando proceso remoto."
+            Write-Error "El servidor remoto [$ServerIP] no responde. Abortando proceso remoto." -ForegroundColor Red
             return # Detiene la ejecución en este pipeline
         }
         Write-Host "Servidor [$ServerIP] en línea. Preparando transferencia con $Cantidad carpetas..." -ForegroundColor Green
@@ -303,44 +303,80 @@ function Get-Remote-Backup {
 function Get-Backup-Summary {
     <#
     .SYNOPSIS
-    Short description
+    Esta función es un placeholder para la generación del resumen detallado al finalizar el proceso de respaldo. Deberá implementar la recopilación de información sobre los archivos respaldados, errores encontrados y generar un reporte legible para el usuario.
     .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
+    Función encargada de recopilar toda la información relevante al proceso de respaldo, incluyendo detalles sobre los archivos respaldados, errores encontrados y el estado final del proceso. Esta función debe generar un reporte legible para el usuario, que resuma de manera clara y concisa los resultados del respaldo, permitiendo a los usuarios entender fácilmente qué se respaldó, qué errores ocurrieron (si los hubo) y cuál fue el resultado final del proceso.
     .INPUTS
-    Inputs to this cmdlet (if any)
+    Placeholder de las funciones de backup remoto y externo
     .OUTPUTS
-    Output from this cmdlet (if any)
+    Archivo .log o .txt con el resumen detallado del proceso de respaldo, incluyendo información sobre los archivos respaldados, errores encontrados y estado final del proceso. Resumen legible para el usuario que permita entender claramente los resultados del respaldo.
     .NOTES
-    General notes
+    Esta función es crucial para proporcionar a los usuarios una visión clara y detallada de los resultados del proceso de respaldo, facilitando la comprensión de lo que se respaldó, los errores encontrados y el estado final del proceso.
     .COMPONENT
-    The component this cmdlet belongs to
+    El componente encargado de generar el resumen detallado al finalizar el proceso de respaldo dentro del script.
     .ROLE
-    The role this cmdlet belongs to
+    Generación de resumen detallado del proceso de respaldo.
     .FUNCTIONALITY
-    The functionality that best describes this cmdlet
+    Función encargada de recopilar información sobre los archivos respaldados, errores encontrados y generar un reporte legible para el usuario al finalizar el proceso de respaldo, proporcionando una visión clara y detallada de los resultados obtenidos.
     #>
-    param (
-       
-    )
+   param (
+        # Recibe los objetos [PSCustomObject] creados en las funciones de respaldo
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSCustomObject[]]$ResultadosDetallados
+   )
 
     begin {
-        #BeginCodeHere
+        Write-Host "`n--- Generando Resumen del Respaldo ---" -ForegroundColor Cyan
+        $LogPath = ".\Backup_Summary_$($env:COMPUTERNAME)_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        
+        # Iniciamos el registro de todo lo que salga en consola hacia el archivo
+        Start-Transcript -Path $LogPath -NoClobber
+        
+        Write-Host "================================================"
+        Write-Host "RESUMEN DE RESPALDO - EQUIPO: $($env:COMPUTERNAME)"
+        Write-Host "FECHA: $(Get-Date)"
+        Write-Host "================================================"
     }
 
     process {
-       
+        # Como los resultados vienen del pipeline, los procesamos
+        foreach ($Item in $ResultadosDetallados) {
+            $Color = if ($Item.Status -eq "Éxito") { "Green" } else { "Red" }
+            
+            Write-Host "Carpeta: $($Item.Carpeta)" -ForegroundColor Yellow
+            Write-Host " > Estado: $($Item.Status)" -ForegroundColor $Color
+            Write-Host " > Código de Salida (Robocopy): $($Item.ExitCode)"
+            Write-Host "------------------------------------------------"
+        }
     }
 
     end {
-        #EndCodeHere
+        # Cálculo de estadísticas finales
+        $Total = $ResultadosDetallados.Count
+        $Exitos = ($ResultadosDetallados | Where-Object { $_.Status -eq "Éxito" }).Count
+        $Errores = $Total - $Exitos
+
+        Write-Host "`nESTADO FINAL DEL PROCESO:" -ForegroundColor Cyan
+        Write-Host "Total procesado: $Total"
+        Write-Host "Exitosos: $Exitos" -ForegroundColor Green
+        Write-Host "Errores: $Errores" -ForegroundColor Red
+        
+        if ($Errores -gt 0) {
+            Write-Host "AVISO: Se detectaron problemas en algunas carpetas. Revise los códigos de salida." -ForegroundColor Magenta
+        }
+
+        Stop-Transcript
+        Write-Host "`nReporte guardado en: $LogPath" -ForegroundColor Gray
+        if (Test-Path $LogPath) {
+            return Get-Item $LogPath
+        }
+        $Reporte = Get-UserFolders | Get-Answer | Get-External-Backup -DevicePath "F:\" | Get-Backup-Summary
+        $Reporte | Move-Item -Destination "\Backups_Logs\"
     }
 
     clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
+        # El bloque clean es ideal para asegurar que el transcript se detenga si algo falla
+        if ($null -ne (Get-Transcript)) { Stop-Transcript }
     }
 }
 
@@ -385,7 +421,7 @@ function Get-Incremental-Backup {
     } 
 }
 
-# Función principal para ejecutar el proceso de respaldo
+# Función principal para ejecutar el proceso de respaldo, es el Main Funtion
 function Get-Execution {
     <#
     .SYNOPSIS
