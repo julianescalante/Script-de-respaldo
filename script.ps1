@@ -370,8 +370,6 @@ function Get-Backup-Summary {
         if (Test-Path $LogPath) {
             return Get-Item $LogPath
         }
-        $Reporte = Get-UserFolders | Get-Answer | Get-External-Backup -DevicePath "F:\" | Get-Backup-Summary
-        $Reporte | Move-Item -Destination "\Backups_Logs\"
     }
 
     clean {
