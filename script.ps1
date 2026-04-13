@@ -5,7 +5,6 @@
 .DESCRIPTION
     Respalda las carpetas principales del perfil del usuario (Desktop, Documents)
     con opciones para incluir carpetas adicionales (Downloads, Music, Pictures, Videos)
-    y discos adicionales en el sistema.
     
     Ofrece dos modos de destino:
     - Servidor remoto mediante dirección IP (ruta UNC)
@@ -144,11 +143,11 @@ function Get-External-Backup {
     Función encargada de realizar respaldos a dispositivos de almacenamiento externos, manejando la detección de unidades, transferencia de archivos, manejo de errores y generación de logs detallados sobre el proceso.
     #>
 
-  param (
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [PSCustomObject]$BackupConfig,
         
-        [Parameter(Mandatory=$true)] # Agregué Mandatory para asegurar que el script no falle sin ruta
+        [Parameter(Mandatory = $true)] # Agregué Mandatory para asegurar que el script no falle sin ruta
         [string]$DevicePath
     )
 
@@ -196,7 +195,8 @@ function Get-External-Backup {
                 }
             }
                 
-        } else {
+        }
+        else {
             Write-Host "No se ha especificado un dispositivo externo válido. Respaldo cancelado." -ForegroundColor Red
         }
     }
@@ -219,45 +219,83 @@ function Get-External-Backup {
 function Get-Remote-Backup {
     <#
     .SYNOPSIS
-    Short description
+    Esta función es un placeholder para la lógica de respaldo a un destino remoto. Deberá implementar la conexión al servidor via IP, manejo de rutas UNC y la transferencia de archivos. En caso de que la carpeta del servidor pida autenticación, el servidor pedirá credenciales.       
     .DESCRIPTION
-    Long description
-    .EXAMPLE
-    Example of how to use this cmdlet
-    .EXAMPLE
-    Another example of how to use this cmdlet
+    Función que recibe una dirección IP del servidor remoto y las rutas de las carpetas a respaldar. Implementa la lógica para establecer una conexión con el servidor, manejar rutas UNC y transferir los archivos seleccionados. En caso de que el servidor requiera autenticación, la función solicitará las credenciales necesarias para acceder al destino remoto. Además, se recomienda implementar una lógica para verificar la disponibilidad del servidor antes de iniciar el proceso de respaldo y manejar adecuadamente cualquier error que pueda surgir durante la conexión o transferencia de archivos.
     .INPUTS
-    Inputs to this cmdlet (if any)
+    Dirección IP del servidor remoto y las rutas de las carpetas a respaldar. (si se requiere información adicional para la conexión o autenticación, también se incluiría aquí)
     .OUTPUTS
-    Output from this cmdlet (if any)
+    Resultados del proceso de respaldo, incluyendo información sobre los archivos respaldados, errores encontrados y estado final del proceso.
+    Backup exitoso o fallido.
     .NOTES
-    General notes
+    No maneja respaldos a dispositivos externos, solo destinos remotos hacia un servidor por medio de una IP.
     .COMPONENT
-    The component this cmdlet belongs to
+    El componente encargado de gestionar los respaldos a destinos remotos dentro del script.
     .ROLE
-    The role this cmdlet belongs to
+    Respaldo a destinos remotos por IP.
     .FUNCTIONALITY
-    The functionality that best describes this cmdlet
+    Función encargada de realizar respaldos a destinos remotos por IP, manejando la conexión al servidor, transferencia de archivos, manejo de errores y generación de logs detallados sobre el proceso.
     #>
     
-    param (
-    
+   param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSCustomObject]$BackupConfig,
+            
+        [Parameter(Mandatory = $true)]
+        [string]$ServerIP
     )
 
     begin {
-        #BeginCodeHere
+        $Resultados = @()
+        Write-Host "--- Iniciando Validación de Red ---" -ForegroundColor Cyan
+        
+        # Verificar si el servidor responde al ping
+        if (-not (Test-Connection -ComputerName $ServerIP -Count 1 -Quiet)) {
+            Write-Error "El servidor remoto [$ServerIP] no responde. Abortando proceso remoto."
+            return # Detiene la ejecución en este pipeline
+        }
+        Write-Host "Servidor [$ServerIP] en línea. Preparando transferencia con $Cantidad carpetas..." -ForegroundColor Green
     }
 
     process {
-        
+        $Rutas = $BackupConfig.SelectedPaths
+        $Cantidad = $BackupConfig.Count
+
+        # Definimos la ruta base UNC. 
+        # Nota: Usamos el recurso compartido 'C$' por defecto, o podrías pedir una carpeta compartida específica.
+        $RemoteRoot = "\\$ServerIP\C$\Backups_Remote\$($env:COMPUTERNAME)"
+
+        foreach ($Folder in $Rutas.Keys) {
+            $Origen = $Rutas[$Folder]
+            $DestinoRemoto = Join-Path $RemoteRoot $Folder
+
+            Write-Host "Transfiriendo [$Folder] a destino remoto..." -ForegroundColor Yellow
+
+            # Parámetros óptimos para red:
+            # /IPG:5 : Inter-Packet Gap (opcional, ayuda en redes muy lentas para no saturar)
+            # /NP    : No Progress (oculta el porcentaje, acelera un poco el proceso en red)
+            $Params = @($Origen, $DestinoRemoto, "/E", "/Z", "/R:5", "/W:10", "/MT:16", "/NP", "/XJD", "/XJF", "/IPG:5")
+            
+            & robocopy @Params
+
+            $LastExit = $LASTEXITCODE
+            $Resultados += [PSCustomObject]@{
+                Carpeta     = $Folder
+                Servidor    = $ServerIP
+                RutaUNC     = $DestinoRemoto
+                ExitCode    = $LastExit
+                Status      = if ($LastExit -le 8) { "Éxito" } else { "Error de Red/Permisos" }
+            }
+        }
     }
 
     end {
-        #EndCodeHere
+        Write-Host "Respaldo remoto a [$ServerIP] finalizado." -ForegroundColor Green
+        return $Resultados
     }
 
     clean {
-        #CleanCodeHere - Added in 7.3 for more information see https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.5#clean
+        Write-Host "Conexión con [$ServerIP] cerrada." -ForegroundColor Cyan
     }
 }
 
