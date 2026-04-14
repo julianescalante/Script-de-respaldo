@@ -32,13 +32,11 @@ function Get-Answer {
         Write-Host "`n--- Configuración de Alcance del Respaldo ---" -ForegroundColor Cyan
         $FinalPaths = @{}
         
-        # Definimos quiénes son obligatorios y quiénes opcionales
         $Obligatorios = @('Desktop', 'Documents')
         $Opcionales   = @('Downloads', 'Music', 'Pictures', 'Videos')
     }
 
     process {
-        # 1. Procesar Obligatorios
         foreach ($key in $Obligatorios) {
             if ($UserFolders.ContainsKey($key)) {
                 if (Test-Path $UserFolders[$key]) {
@@ -48,7 +46,6 @@ function Get-Answer {
             }
         }
 
-        # 2. Procesar Opcionales con pregunta
         foreach ($key in $Opcionales) {
             if ($UserFolders.ContainsKey($key) -and (Test-Path $UserFolders[$key])) {
                 $choice = ""
@@ -64,12 +61,10 @@ function Get-Answer {
     }
 
     end {
-        # Verificación de seguridad: si por algo quedó vacío, avisar
         if ($FinalPaths.Count -eq 0) {
             Write-Warning "No se seleccionaron carpetas válidas."
         }
 
-        # Retornamos el objeto con TODAS las rutas seleccionadas
         return [PSCustomObject]@{
             SelectedPaths = $FinalPaths
             TimeStamp     = Get-Date
@@ -95,15 +90,15 @@ function Get-External-Backup {
         $Rutas = $BackupConfig.SelectedPaths
         foreach ($Folder in $Rutas.Keys) {
             $Destino = Join-Path $DevicePath "Backup_$($env:COMPUTERNAME)\$Folder"
+            if (-not (Test-Path $Destino)) { New-Item -ItemType Directory -Force -Path $Destino | Out-Null }
+
             Write-Host " > Copiando $Folder..." -NoNewline
+            $ExitCode = & robocopy $Rutas[$Folder] $Destino /E /Z /R:2 /W:2 /MT:8 /XJD /XJF
+            $Status   = if ($ExitCode -lt 8) { "Éxito" } else { "Error" }
+            $Color    = if ($Status -eq "Éxito") { "Green" } else { "Red" }
+            Write-Host " [$Status]" -ForegroundColor $Color
             
-            $Params = @($Rutas[$Folder], $Destino, "/E", "/Z", "/R:2", "/W:2", "/MT:8", "/XJD", "/XJF")
-            $Process = Start-Process robocopy -ArgumentList $Params -Wait -NoNewWindow -PassThru
-            
-            $Status = if ($Process.ExitCode -lt 8) { "Éxito" } else { "Error" }
-            Write-Host " [$Status]" -ForegroundColor (if ($Status -eq "Éxito") { "Green" } else { "Red" })
-            
-            $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $Process.ExitCode; Status = $Status }
+            $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $ExitCode; Status = $Status }
         }
     }
     end { return $Resultados }
@@ -126,15 +121,15 @@ function Get-Remote-Backup {
         $RemoteRoot = "\\$ServerIP\C$\Backups_Remote\$($env:COMPUTERNAME)"
         foreach ($Folder in $Rutas.Keys) {
             $Destino = Join-Path $RemoteRoot $Folder
+            if (-not (Test-Path $Destino)) { New-Item -ItemType Directory -Force -Path $Destino | Out-Null }
+
             Write-Host " > Enviando $Folder..." -NoNewline
+            $ExitCode = & robocopy $Rutas[$Folder] $Destino /E /Z /R:5 /W:10 /MT:16 /NP /XJD /XJF
+            $Status   = if ($ExitCode -lt 8) { "Éxito" } else { "Error" }
+            $Color    = if ($Status -eq "Éxito") { "Green" } else { "Red" }
+            Write-Host " [$Status]" -ForegroundColor $Color
             
-            $Params = @($Rutas[$Folder], $Destino, "/E", "/Z", "/R:5", "/W:10", "/MT:16", "/NP", "/XJD", "/XJF")
-            $Process = Start-Process robocopy -ArgumentList $Params -Wait -NoNewWindow -PassThru
-            
-            $Status = if ($Process.ExitCode -lt 8) { "Éxito" } else { "Error" }
-            Write-Host " [$Status]" -ForegroundColor (if ($Status -eq "Éxito") { "Green" } else { "Red" })
-            
-            $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $Process.ExitCode; Status = $Status }
+            $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $ExitCode; Status = $Status }
         }
     }
     end { return $Resultados }
