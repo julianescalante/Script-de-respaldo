@@ -150,7 +150,7 @@ function Get-Backup-Summary {
             Write-Host "Carpeta: $($_.Carpeta) - Status: $($_.Status) (Code: $($_.ExitCode))"
         }
         Stop-Transcript
-        return Get-Item $LogPath
+        return $LogPath   # devolvemos la ruta como string
     }
 }
 
@@ -177,7 +177,7 @@ function Get-Execution {
 
         Write-Host "`nPROCESO TERMINADO." -ForegroundColor Green
         Write-Host "El log se abrirá a continuación..."
-        Start-Process notepad.exe -ArgumentList $Log.FullName
+        Start-Process notepad.exe -ArgumentList $Log   # usamos la ruta directamente
     } 
     catch {
         Write-Host "`nERROR CRÍTICO: $($_.Exception.Message)" -ForegroundColor Red
