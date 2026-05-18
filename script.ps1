@@ -115,10 +115,28 @@ function Get-Remote-Backup {
     begin {
         $Resultados = @()
         if (-not (Test-Connection -ComputerName $ServerIP -Count 1 -Quiet)) { throw "Servidor $ServerIP no responde." }
+
+        $RemoteUNCRoot = "\\$ServerIP\Backups_Remote\$($env:COMPUTERNAME)"
+
+        try { cmd.exe /c "cmdkey /delete:$ServerIP" > $null 2>&1 } catch { }
+
+        if (-not (Test-Path $RemoteUNCRoot)) {
+            Write-Host "Acceso a $RemoteUNCRoot no disponible. Se abrirá el recurso para que el servidor solicite credenciales..." -ForegroundColor Yellow
+            Start-Process -FilePath explorer.exe -ArgumentList $RemoteUNCRoot
+            $timeout = 10
+            $elapsed = 0
+            while (-not (Test-Path $RemoteUNCRoot) -and $elapsed -lt $timeout) {
+                Start-Sleep -Seconds 2
+                $elapsed += 2
+            }
+            if (-not (Test-Path $RemoteUNCRoot)) {
+                throw "No se obtuvo acceso al recurso remoto. Asegúrese de autenticarse cuando se abra la ventana y reintente."
+            }
+        }
     }
     process {
         $Rutas = $BackupConfig.SelectedPaths
-        $RemoteRoot = "\\$ServerIP\C$\Backups_Remote\$($env:COMPUTERNAME)"
+        $RemoteRoot = $RemoteUNCRoot
         foreach ($Folder in $Rutas.Keys) {
             $Destino = Join-Path $RemoteRoot $Folder
             if (-not (Test-Path $Destino)) { New-Item -ItemType Directory -Force -Path $Destino | Out-Null }
