@@ -89,14 +89,18 @@ function Get-External-Backup {
     process {
         $Rutas = $BackupConfig.SelectedPaths
         foreach ($Folder in $Rutas.Keys) {
-            $Destino = Join-Path $DevicePath "Backup_$($env:COMPUTERNAME)\$Folder"
+            $Destino = Join-Path -Path $DevicePath -ChildPath "Backup_$($env:COMPUTERNAME)\$Folder"
             if (-not (Test-Path $Destino)) { New-Item -ItemType Directory -Force -Path $Destino | Out-Null }
 
             Write-Host " > Copiando $Folder..." -NoNewline
-            $ExitCode = & robocopy $Rutas[$Folder] $Destino /E /Z /R:2 /W:2 /MT:8 /XJD /XJF
+
+            # Se captura $LASTEXITCODE para evitar que Stop lance excepción en códigos de Robocopy < 8
+            & robocopy $Rutas[$Folder] $Destino /E /Z /R:2 /W:2 /MT:8 /XJD /XJF | Out-Null
+            $ExitCode = $LASTEXITCODE
+
             $Status   = if ($ExitCode -lt 8) { "Éxito" } else { "Error" }
             $Color    = if ($Status -eq "Éxito") { "Green" } else { "Red" }
-            Write-Host " [$Status]" -ForegroundColor $Color
+            Write-Host " [$Status] (Code: $ExitCode)" -ForegroundColor $Color
             
             $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $ExitCode; Status = $Status }
         }
@@ -124,10 +128,14 @@ function Get-Remote-Backup {
             if (-not (Test-Path $Destino)) { New-Item -ItemType Directory -Force -Path $Destino | Out-Null }
 
             Write-Host " > Enviando $Folder..." -NoNewline
-            $ExitCode = & robocopy $Rutas[$Folder] $Destino /E /Z /R:5 /W:10 /MT:16 /NP /XJD /XJF
+
+            # Se captura $LASTEXITCODE para evitar que Stop lance excepción en códigos de Robocopy < 8
+            & robocopy $Rutas[$Folder] $Destino /E /Z /R:5 /W:10 /MT:16 /NP /XJD /XJF | Out-Null
+            $ExitCode = $LASTEXITCODE
+
             $Status   = if ($ExitCode -lt 8) { "Éxito" } else { "Error" }
             $Color    = if ($Status -eq "Éxito") { "Green" } else { "Red" }
-            Write-Host " [$Status]" -ForegroundColor $Color
+            Write-Host " [$Status] (Code: $ExitCode)" -ForegroundColor $Color
             
             $Resultados += [PSCustomObject]@{ Carpeta = $Folder; ExitCode = $ExitCode; Status = $Status }
         }
@@ -137,20 +145,38 @@ function Get-Remote-Backup {
 
 # --- 5. RESUMEN Y LOG ---
 function Get-Backup-Summary {
-    param ([Parameter(Mandatory = $true, ValueFromPipeline = $true)][PSCustomObject[]]$ResultadosDetallados)
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSCustomObject[]]$ResultadosDetallados
+    )
     begin {
-        $LogPath = Join-Path $PSScriptRoot "Backup_Log_$($env:COMPUTERNAME)_$(Get-Date -Format 'yyyyMMdd_HHmm').log"
-        Start-Transcript -Path $LogPath -NoClobber
+        # Resguardo si el script se ejecuta sin guardar ($PSScriptRoot vacío)
+        $BaseDir = if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Get-Location).Path } else { $PSScriptRoot }
+        
+        $LogFileName = "Backup_Log_$($env:COMPUTERNAME)_$(Get-Date -Format 'yyyyMMdd_HHmm').log"
+        $LogPath     = Join-Path -Path $BaseDir -ChildPath $LogFileName
+
         Write-Host "`n=== RESUMEN FINAL ===" -ForegroundColor Cyan
         $Acumulado = @()
     }
-    process { $Acumulado += $ResultadosDetallados }
+    process { 
+        $Acumulado += $ResultadosDetallados 
+    }
     end {
-        $Acumulado | ForEach-Object {
-            Write-Host "Carpeta: $($_.Carpeta) - Status: $($_.Status) (Code: $($_.ExitCode))"
+        $LineasLog = @()
+        foreach ($item in $Acumulado) {
+            $linea = "Carpeta: $($item.Carpeta) - Status: $($item.Status) (Code: $($item.ExitCode))"
+            Write-Host $linea
+            $LineasLog += $linea
         }
-        Stop-Transcript
-        return $LogPath   # devolvemos la ruta como string
+
+        if ($LineasLog.Count -gt 0) {
+            $LineasLog | Out-File -FilePath $LogPath -Encoding utf8 -Force
+        } else {
+            "No se procesaron carpetas." | Out-File -FilePath $LogPath -Encoding utf8 -Force
+        }
+
+        return $LogPath
     }
 }
 
@@ -176,8 +202,10 @@ function Get-Execution {
         }
 
         Write-Host "`nPROCESO TERMINADO." -ForegroundColor Green
-        Write-Host "El log se abrirá a continuación..."
-        Start-Process notepad.exe -ArgumentList $Log   # usamos la ruta directamente
+        if ($Log -and (Test-Path $Log)) {
+            Write-Host "El log se abrirá a continuación..."
+            Start-Process notepad.exe -ArgumentList $Log
+        }
     } 
     catch {
         Write-Host "`nERROR CRÍTICO: $($_.Exception.Message)" -ForegroundColor Red
